@@ -7,6 +7,7 @@ build/
 .settings/
 .cproject
 .project
+*.launch
 
 # OS / editor junk
 .DS_Store
