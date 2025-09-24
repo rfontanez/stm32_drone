@@ -1,0 +1,21 @@
+# Build directories
+Debug/
+Release/
+build/
+
+# CubeIDE metadata
+.settings/
+.cproject
+.project
+
+# OS / editor junk
+.DS_Store
+*.swp
+*.tmp
+
+# Compiled files
+*.o
+*.elf
+*.bin
+*.map
+
