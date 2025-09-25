@@ -42,6 +42,11 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 
+//	flag for main() to know if weve got data
+	uint8_t uart6_rx_flag = 0;
+//	variable to store the recieved data
+	uint8_t uart6_rx_data = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -197,6 +202,28 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f4xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles USART6 global interrupt.
+  */
+void USART6_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART6_IRQn 0 */
+	//when interupt handler is called, check if it was RXNE
+	if (LL_USART_IsActiveFlag_RXNE(USART6))
+	{
+		//if so, reset that flag for next time
+		LL_USART_ClearFlag_RXNE(USART6);
+		//get the data that is waiting and save it to global variable...
+		uart6_rx_data = LL_USART_ReceiveData8(USART6);
+		//change this flag so that main() knows this has happened.
+		uart6_rx_flag = 1;
+	}
+  /* USER CODE END USART6_IRQn 0 */
+  /* USER CODE BEGIN USART6_IRQn 1 */
+
+  /* USER CODE END USART6_IRQn 1 */
+}
 
 /* USER CODE BEGIN 1 */
 

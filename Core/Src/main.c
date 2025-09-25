@@ -19,7 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "tim.h"
+#include "usart.h"
 #include "gpio.h"
+#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -28,6 +30,21 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+//implement _write function so that printf will work
+//takes the pointer location for the first char in the string to print
+int _write(int file, char* p, int len)
+{
+	for (int i = 0; i < len; i++)
+	{
+		// Wait until transmit data register is empty
+		while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+		//adds to the initial pointer location for every char in string
+		LL_USART_TransmitData8(USART6, *(p+i));
+//		HAL_Delay(1);
+	}
+	return len;
+}
 
 /* USER CODE END PTD */
 
@@ -44,6 +61,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
+//	flag to know if we've got data - initialized in stm32f4xx_it.c
+	extern uint8_t uart6_rx_flag;
+//	variable to store the received data
+	extern uint8_t uart6_rx_data;
+
 
 /* USER CODE END PV */
 
@@ -67,6 +90,9 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
+//  int temp = 0;
+  float flt = 8.000f;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -88,6 +114,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM3_Init();
+  MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -100,6 +127,10 @@ int main(void)
   HAL_Delay(100);
 
   LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+
+  LL_USART_EnableIT_RXNE(USART6);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -110,8 +141,56 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 //	  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2);
-	  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_2);
+
+	    // Wait until transmit data register is empty
+//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+
+//	  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_2);
+
+//	  LL_USART_TransmitData8(USART6, 'A');
+//
+//	  // Optionally send newline
+//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+//	  LL_USART_TransmitData8(USART6, '\r');
+//
+//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+//	  LL_USART_TransmitData8(USART6, '\n');
+
+	  if (uart6_rx_flag == 1) {
+
+		  //reset the flag that indicates received data
+		  uart6_rx_flag = 0;
+
+		  //send it back to PC to confirm (basically just to debug)
+//		  LL_USART_TransmitData8(USART6, 'r');
+//		  LL_USART_TransmitData8(USART6, ':');
+//		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+//		  LL_USART_TransmitData8(USART6, '\n');
+//		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+//		  LL_USART_TransmitData8(USART6, uart6_rx_data);
+
+		  switch(uart6_rx_data)
+		  {
+		  case '0': HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2); break;
+		  case '1': LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
+		  case '2': LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
+		  default: break;
+		  }
+
+
+	  }
+
+
+//	  printf("Hello world!\n");
+
+//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+
+//	  printf("%d\n", temp++);
+	  printf("%f\n", flt+=0.001);
 	  HAL_Delay(1000);
+
+
+
   }
   /* USER CODE END 3 */
 }
