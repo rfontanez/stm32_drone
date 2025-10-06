@@ -18,9 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+#include "BNO080.h"
+#include "Quaternion.h"
 #include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
@@ -92,6 +95,9 @@ int main(void)
 
 //  int temp = 0;
   float flt = 8.000f;
+  float q[4];
+  float quatRadianAccuracy;
+
 
   /* USER CODE END 1 */
 
@@ -115,6 +121,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM3_Init();
   MX_USART6_UART_Init();
+  MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -129,6 +136,11 @@ int main(void)
   LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
 
   LL_USART_EnableIT_RXNE(USART6);
+
+  //initialize BNO080 - includes SPI2 and GPIO configurations
+  BNO080_Initialization();
+  //Set output to be rotation vector and rate to 2500ms which is the max 400Hz output rate
+  BNO080_enableRotationVector(2500);
 
 
   /* USER CODE END 2 */
@@ -155,39 +167,51 @@ int main(void)
 //
 //	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
 //	  LL_USART_TransmitData8(USART6, '\n');
+//
+//	  if (uart6_rx_flag == 1) {
+//
+//		  //reset the flag that indicates received data
+//		  uart6_rx_flag = 0;
+//
+//		  //send it back to PC to confirm (basically just to debug)
+////		  LL_USART_TransmitData8(USART6, 'r');
+////		  LL_USART_TransmitData8(USART6, ':');
+////		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+////		  LL_USART_TransmitData8(USART6, '\n');
+////		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
+////		  LL_USART_TransmitData8(USART6, uart6_rx_data);
 
-	  if (uart6_rx_flag == 1) {
+//		  switch(uart6_rx_data)
+//		  {
+//		  case '0': HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2); break;
+//		  case '1': LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
+//		  case '2': LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
+//		  default: break;
+//		  }
+//	  }
+//
+//	  printf("%f\n", flt+=0.001);
+//	  HAL_Delay(1000);
 
-		  //reset the flag that indicates received data
-		  uart6_rx_flag = 0;
+	  //check if BNO080 has data for us
+	  if (BNO080_dataAvailable() == 1) {
+//		  //store the raw values of the quaternion
+		  q[0] = BNO080_getQuatI();
+		  q[1] = BNO080_getQuatJ();
+		  q[2] = BNO080_getQuatK();
+		  q[3] = BNO080_getQuatReal();
 
-		  //send it back to PC to confirm (basically just to debug)
-//		  LL_USART_TransmitData8(USART6, 'r');
-//		  LL_USART_TransmitData8(USART6, ':');
-//		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-//		  LL_USART_TransmitData8(USART6, '\n');
-//		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-//		  LL_USART_TransmitData8(USART6, uart6_rx_data);
+//		  //store the accuracy - not sure why but spark fun does
+		  quatRadianAccuracy = BNO080_getQuatRadianAccuracy();
 
-		  switch(uart6_rx_data)
-		  {
-		  case '0': HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2); break;
-		  case '1': LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
-		  case '2': LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
-		  default: break;
-		  }
+//		  //send raw values to be turned into Euler angles
+//		  //this stores the roll, pitch, and yaw values globally
+		  Quaternion_Update(&q[0]);
 
+//		  //print them as ints to avoid printf float errors
+		  printf("R:%d, P:%d, Y:%d\n", (int)(BNO080_Roll*100), (int)(BNO080_Pitch*100), (int)(BNO080_Yaw*100));
 
 	  }
-
-
-//	  printf("Hello world!\n");
-
-//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-
-//	  printf("%d\n", temp++);
-	  printf("%f\n", flt+=0.001);
-	  HAL_Delay(1000);
 
 
 
