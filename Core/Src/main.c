@@ -22,13 +22,13 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
-#include "BNO080.h"
-#include "Quaternion.h"
-#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include "BNO080.h"
+#include "Quaternion.h"
+#include "ICM20602.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -94,7 +94,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
 //  int temp = 0;
-  float flt = 8.000f;
+//  float flt = 8.000f;
   float q[4];
   float quatRadianAccuracy;
 
@@ -122,6 +122,7 @@ int main(void)
   MX_TIM3_Init();
   MX_USART6_UART_Init();
   MX_SPI2_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -141,7 +142,10 @@ int main(void)
   BNO080_Initialization();
   //Set output to be rotation vector and rate to 2500ms which is the max 400Hz output rate
   BNO080_enableRotationVector(2500);
-
+  //initialize ICM-20602 - includes SPI1 and GPIO configurations
+  //NOTE: This doesn't enable the accelerometer, to enable, go into
+  //the function def and uncomment that line.
+  ICM20602_Initialization();
 
   /* USER CODE END 2 */
 
@@ -152,64 +156,40 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//	  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2);
-
-	    // Wait until transmit data register is empty
-//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-
-//	  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_2);
-
-//	  LL_USART_TransmitData8(USART6, 'A');
-//
-//	  // Optionally send newline
-//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-//	  LL_USART_TransmitData8(USART6, '\r');
-//
-//	  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-//	  LL_USART_TransmitData8(USART6, '\n');
-//
-//	  if (uart6_rx_flag == 1) {
-//
-//		  //reset the flag that indicates received data
-//		  uart6_rx_flag = 0;
-//
-//		  //send it back to PC to confirm (basically just to debug)
-////		  LL_USART_TransmitData8(USART6, 'r');
-////		  LL_USART_TransmitData8(USART6, ':');
-////		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-////		  LL_USART_TransmitData8(USART6, '\n');
-////		  while (!LL_USART_IsActiveFlag_TXE(USART6)) {}
-////		  LL_USART_TransmitData8(USART6, uart6_rx_data);
-
-//		  switch(uart6_rx_data)
-//		  {
-//		  case '0': HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2); break;
-//		  case '1': LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
-//		  case '2': LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); break;
-//		  default: break;
-//		  }
-//	  }
-//
-//	  printf("%f\n", flt+=0.001);
-//	  HAL_Delay(1000);
 
 	  //check if BNO080 has data for us
-	  if (BNO080_dataAvailable() == 1) {
-//		  //store the raw values of the quaternion
-		  q[0] = BNO080_getQuatI();
-		  q[1] = BNO080_getQuatJ();
-		  q[2] = BNO080_getQuatK();
-		  q[3] = BNO080_getQuatReal();
+//	  if (BNO080_dataAvailable() == 1) {
+////		  //store the raw values of the quaternion
+//		  q[0] = BNO080_getQuatI();
+//		  q[1] = BNO080_getQuatJ();
+//		  q[2] = BNO080_getQuatK();
+//		  q[3] = BNO080_getQuatReal();
+//
+////		  //store the accuracy - not sure why but spark fun does
+//		  quatRadianAccuracy = BNO080_getQuatRadianAccuracy();
+//
+////		  //send raw values to be turned into Euler angles
+////		  //this stores the roll, pitch, and yaw values globally
+//		  Quaternion_Update(&q[0]);
+//
+////		  //print them as ints to avoid printf float errors
+//		  printf("R:%d, P:%d, Y:%d\n", (int)(BNO080_Roll*100), (int)(BNO080_Pitch*100), (int)(BNO080_Yaw*100));
+//
+//	  }
+	  if (ICM20602_DataReady() == 1){
 
-//		  //store the accuracy - not sure why but spark fun does
-		  quatRadianAccuracy = BNO080_getQuatRadianAccuracy();
+		  ICM20602_Get3AxisGyroRawData(&ICM20602.gyro_x_raw);//by passing the first struct member we want(gyro_x_raw)
+		  	  	  	  	  	  	  	  	  	  	  	  	  	//as a reference (its address), the function can
+		  	  	  	  	  	  	  	  	  	  	  	  	  	//just add to its address to get to all the other members
+		  	  	  	  	  	  	  	  	  	  	  	  	    //kind of like passing the address of an array
+		  //convert raw value to degrees per second (dps)
+		  ICM20602_gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
+		  ICM20602_gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
+		  ICM20602_gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
 
-//		  //send raw values to be turned into Euler angles
-//		  //this stores the roll, pitch, and yaw values globally
-		  Quaternion_Update(&q[0]);
-
-//		  //print them as ints to avoid printf float errors
-		  printf("R:%d, P:%d, Y:%d\n", (int)(BNO080_Roll*100), (int)(BNO080_Pitch*100), (int)(BNO080_Yaw*100));
+//		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, ICM20602.gyro_x_raw, ICM20602.gyro_y_raw, ICM20602.gyro_z_raw, -4000);
+		  //print dps values, multiplied by 100 to save decimal values, divide outputted values by 100 to get actual dps
+		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, (int)(ICM20602.gyro_x * 100), (int)(ICM20602.gyro_y * 100), (int)(ICM20602.gyro_z * 100), -4000);
 
 	  }
 
