@@ -29,6 +29,7 @@
 #include "BNO080.h"
 #include "Quaternion.h"
 #include "ICM20602.h"
+#include "LPS22HH.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -123,6 +124,7 @@ int main(void)
   MX_USART6_UART_Init();
   MX_SPI2_Init();
   MX_SPI1_Init();
+  MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -146,6 +148,9 @@ int main(void)
   //NOTE: This doesn't enable the accelerometer, to enable, go into
   //the function def and uncomment that line.
   ICM20602_Initialization();
+
+  //initialize LPS22HH barometric pressure and temp sensor
+  LPS22HH_Initialization();
 
   /* USER CODE END 2 */
 
@@ -176,20 +181,41 @@ int main(void)
 //		  printf("R:%d, P:%d, Y:%d\n", (int)(BNO080_Roll*100), (int)(BNO080_Pitch*100), (int)(BNO080_Yaw*100));
 //
 //	  }
-	  if (ICM20602_DataReady() == 1){
+//	  if (ICM20602_DataReady() == 1){
+//
+//		  ICM20602_Get3AxisGyroRawData(&ICM20602.gyro_x_raw);//by passing the first struct member we want(gyro_x_raw)
+//		  	  	  	  	  	  	  	  	  	  	  	  	  	//as a reference (its address), the function can
+//		  	  	  	  	  	  	  	  	  	  	  	  	  	//just add to its address to get to all the other members
+//		  	  	  	  	  	  	  	  	  	  	  	  	    //kind of like passing the address of an array
+//		  //convert raw value to degrees per second (dps)
+//		  ICM20602_gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
+//		  ICM20602_gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
+//		  ICM20602_gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
+//
+////		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, ICM20602.gyro_x_raw, ICM20602.gyro_y_raw, ICM20602.gyro_z_raw, -4000);
+//		  //print dps values, multiplied by 100 to save decimal values, divide outputted values by 100 to get actual dps
+//		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, (int)(ICM20602.gyro_x * 100), (int)(ICM20602.gyro_y * 100), (int)(ICM20602.gyro_z * 100), -4000);
+//
+//	  }
 
-		  ICM20602_Get3AxisGyroRawData(&ICM20602.gyro_x_raw);//by passing the first struct member we want(gyro_x_raw)
-		  	  	  	  	  	  	  	  	  	  	  	  	  	//as a reference (its address), the function can
-		  	  	  	  	  	  	  	  	  	  	  	  	  	//just add to its address to get to all the other members
-		  	  	  	  	  	  	  	  	  	  	  	  	    //kind of like passing the address of an array
-		  //convert raw value to degrees per second (dps)
-		  ICM20602_gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
-		  ICM20602_gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
-		  ICM20602_gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
+	  //if the data is ready
+	  if (LPS22HH_DataReady() == 1) {
+		  //get raw data and pass the addresses of the LPS22HH struct raw members to store it using pass by reference
+		  LPS22HH_GetPressure(&LPS22HH.pressure_raw);
+		  LPS22HH_GetTemperature(&LPS22HH.temperature_raw);
 
-//		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, ICM20602.gyro_x_raw, ICM20602.gyro_y_raw, ICM20602.gyro_z_raw, -4000);
-		  //print dps values, multiplied by 100 to save decimal values, divide outputted values by 100 to get actual dps
-		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, (int)(ICM20602.gyro_x * 100), (int)(ICM20602.gyro_y * 100), (int)(ICM20602.gyro_z * 100), -4000);
+		  //convert to altitude in meters using hPa units for pressure and °C for temperature
+		  //use float values in the equations to type cast parameters to floats
+		  //this is un-filtered pressure
+		  LPS22HH.baroAlt = getAltitude2(LPS22HH.pressure_raw/4096.f, LPS22HH.temperature_raw/100.f);//this returns altitude in meters
+
+		  //Low pass filter on the results, X closer to one means higher frequencies get filtered, closer to 0 means lower values get taken out.
+#define X 0.90f
+		  //DSP filter algorithm
+		  LPS22HH.baroAltFilt = LPS22HH.baroAltFilt * X + LPS22HH.baroAlt  * (1.0f - X);
+
+		  //print non filtered and filtered values
+		  printf("%d,%d\n", (int)(LPS22HH.baroAlt*100), (int)(LPS22HH.baroAltFilt*100));//output in centimeters since we multiply by 100 to save float values
 
 	  }
 
