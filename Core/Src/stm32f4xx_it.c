@@ -42,10 +42,16 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 
-//	flag for main() to know if weve got data
-	uint8_t uart6_rx_flag = 0;
-//	variable to store the recieved data
-	uint8_t uart6_rx_data = 0;
+//	flag for main() to know if weve got data for usart6
+uint8_t uart6_rx_flag = 0;
+//	variable to store the recieved data for usart6
+uint8_t uart6_rx_data = 0;
+
+//	flag for main() to know if weve got data for uart5
+uint8_t uart5_rx_flag = 0;
+//	variable to store the recieved data for uart5
+uint8_t uart5_rx_data = 0;
+
 
 /* USER CODE END PV */
 
@@ -202,6 +208,30 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f4xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles UART5 global interrupt.
+  */
+void UART5_IRQHandler(void)
+{
+  /* USER CODE BEGIN UART5_IRQn 0 */
+	if (LL_USART_IsActiveFlag_RXNE(UART5))
+	{
+		//if so, reset that flag for next time
+		LL_USART_ClearFlag_RXNE(UART5);
+		//get the data that is waiting and save it to global variable...
+		uart5_rx_data = LL_USART_ReceiveData8(UART5);
+		//change this flag so that main() knows this has happened.
+		uart5_rx_flag = 1;
+
+		while (!LL_USART_IsActiveFlag_TXE(USART6));
+		LL_USART_TransmitData8(USART6, uart5_rx_data);
+	}
+  /* USER CODE END UART5_IRQn 0 */
+  /* USER CODE BEGIN UART5_IRQn 1 */
+
+  /* USER CODE END UART5_IRQn 1 */
+}
 
 /**
   * @brief This function handles USART6 global interrupt.

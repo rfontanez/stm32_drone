@@ -125,6 +125,7 @@ int main(void)
   MX_SPI2_Init();
   MX_SPI1_Init();
   MX_SPI3_Init();
+  MX_UART5_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -138,12 +139,15 @@ int main(void)
 
   LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
 
-  LL_USART_EnableIT_RXNE(USART6);
+
+  LL_USART_EnableIT_RXNE(USART6);//Interrupt for usart6 for terminal output
+  LL_USART_EnableIT_RXNE(UART5);//Interrupt for uart5 for radio receiver data input
 
   //initialize BNO080 - includes SPI2 and GPIO configurations
   BNO080_Initialization();
   //Set output to be rotation vector and rate to 2500ms which is the max 400Hz output rate
   BNO080_enableRotationVector(2500);
+
   //initialize ICM-20602 - includes SPI1 and GPIO configurations
   //NOTE: This doesn't enable the accelerometer, to enable, go into
   //the function def and uncomment that line.
@@ -199,25 +203,25 @@ int main(void)
 //	  }
 
 	  //if the data is ready
-	  if (LPS22HH_DataReady() == 1) {
-		  //get raw data and pass the addresses of the LPS22HH struct raw members to store it using pass by reference
-		  LPS22HH_GetPressure(&LPS22HH.pressure_raw);
-		  LPS22HH_GetTemperature(&LPS22HH.temperature_raw);
-
-		  //convert to altitude in meters using hPa units for pressure and °C for temperature
-		  //use float values in the equations to type cast parameters to floats
-		  //this is un-filtered pressure
-		  LPS22HH.baroAlt = getAltitude2(LPS22HH.pressure_raw/4096.f, LPS22HH.temperature_raw/100.f);//this returns altitude in meters
-
-		  //Low pass filter on the results, X closer to one means higher frequencies get filtered, closer to 0 means lower values get taken out.
-#define X 0.90f
-		  //DSP filter algorithm
-		  LPS22HH.baroAltFilt = LPS22HH.baroAltFilt * X + LPS22HH.baroAlt  * (1.0f - X);
-
-		  //print non filtered and filtered values
-		  printf("%d,%d\n", (int)(LPS22HH.baroAlt*100), (int)(LPS22HH.baroAltFilt*100));//output in centimeters since we multiply by 100 to save float values
-
-	  }
+//	  if (LPS22HH_DataReady() == 1) {
+//		  //get raw data and pass the addresses of the LPS22HH struct raw members to store it using pass by reference
+//		  LPS22HH_GetPressure(&LPS22HH.pressure_raw);
+//		  LPS22HH_GetTemperature(&LPS22HH.temperature_raw);
+//
+//		  //convert to altitude in meters using hPa units for pressure and °C for temperature
+//		  //use float values in the equations to type cast parameters to floats
+//		  //this is un-filtered pressure
+//		  LPS22HH.baroAlt = getAltitude2(LPS22HH.pressure_raw/4096.f, LPS22HH.temperature_raw/100.f);//this returns altitude in meters
+//
+//		  //Low pass filter on the results, X closer to one means higher frequencies get filtered, closer to 0 means lower values get taken out.
+//#define X 0.90f
+//		  //DSP filter algorithm
+//		  LPS22HH.baroAltFilt = LPS22HH.baroAltFilt * X + LPS22HH.baroAlt  * (1.0f - X);
+//
+//		  //print non filtered and filtered values
+//		  printf("%d,%d\n", (int)(LPS22HH.baroAlt*100), (int)(LPS22HH.baroAltFilt*100));//output in centimeters since we multiply by 100 to save float values
+//
+//	  }
 
 
 
