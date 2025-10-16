@@ -30,6 +30,7 @@
 #include "Quaternion.h"
 #include "ICM20602.h"
 #include "LPS22HH.h"
+#include "FS-iA6B.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -67,9 +68,12 @@ int _write(int file, char* p, int len)
 /* USER CODE BEGIN PV */
 
 //	flag to know if we've got data - initialized in stm32f4xx_it.c
-	extern uint8_t uart6_rx_flag;
+extern uint8_t uart6_rx_flag;
 //	variable to store the received data
-	extern uint8_t uart6_rx_data;
+extern uint8_t uart6_rx_data;
+
+extern uint8_t ibus_rx_buf[32];//ibus message buffer
+extern uint8_t ibus_rx_cplt_flag; //full message received flag
 
 
 /* USER CODE END PV */
@@ -138,6 +142,12 @@ int main(void)
   HAL_Delay(100);
 
   LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+
+  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+  HAL_Delay(100);
+  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+  HAL_Delay(100);
+  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
 
 
   LL_USART_EnableIT_RXNE(USART6);//Interrupt for usart6 for terminal output
@@ -223,6 +233,17 @@ int main(void)
 //
 //	  }
 
+	  if (ibus_rx_cplt_flag == 1) //if we have a full message
+	  {
+		  ibus_rx_cplt_flag = 0; //reset flag
+		  if (ibus_Check_CHKSUM(&ibus_rx_buf, 32) == 1)
+		  {
+			  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+			  HAL_Delay(100); //slight delay to see the led
+		  }
+
+
+	  }
 
 
   }

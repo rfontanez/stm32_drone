@@ -52,6 +52,10 @@ uint8_t uart5_rx_flag = 0;
 //	variable to store the recieved data for uart5
 uint8_t uart5_rx_data = 0;
 
+uint8_t ibus_rx_buf[32];
+uint8_t ibus_rx_cplt_flag = 0;
+
+
 
 /* USER CODE END PV */
 
@@ -214,6 +218,7 @@ void SysTick_Handler(void)
   */
 void UART5_IRQHandler(void)
 {
+	static unsigned char cnt = 0;
   /* USER CODE BEGIN UART5_IRQn 0 */
 	if (LL_USART_IsActiveFlag_RXNE(UART5))
 	{
@@ -224,8 +229,40 @@ void UART5_IRQHandler(void)
 		//change this flag so that main() knows this has happened.
 		uart5_rx_flag = 1;
 
-		while (!LL_USART_IsActiveFlag_TXE(USART6));
-		LL_USART_TransmitData8(USART6, uart5_rx_data);
+		switch(cnt)
+		{
+		case 0:
+			if (uart5_rx_data == 0x20)
+			{
+				ibus_rx_buf[cnt] = uart5_rx_data;
+				cnt++;
+			}
+			break;
+		case 1:
+			if (uart5_rx_data == 0x40)
+			{
+				ibus_rx_buf[cnt] = uart5_rx_data;
+			}
+			else
+			{
+				cnt = 0;
+			}
+			break;
+		case 31:
+			ibus_rx_buf[cnt] = uart5_rx_data;
+			cnt = 0;
+			ibus_rx_cplt_flag = 1;
+			break;
+		default:
+			ibus_rx_buf[cnt] = uart5_rx_data;
+			cnt++;
+			break;
+
+		}
+
+		//output data to terminal using usart6
+//		while (!LL_USART_IsActiveFlag_TXE(USART6));
+//		LL_USART_TransmitData8(USART6, uart5_rx_data);
 	}
   /* USER CODE END UART5_IRQn 0 */
   /* USER CODE BEGIN UART5_IRQn 1 */
