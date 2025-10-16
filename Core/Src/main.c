@@ -236,9 +236,22 @@ int main(void)
 	  if (ibus_rx_cplt_flag == 1) //if we have a full message
 	  {
 		  ibus_rx_cplt_flag = 0; //reset flag
-		  if (ibus_Check_CHKSUM(&ibus_rx_buf, 32) == 1)
+		  if (ibus_Check_CHKSUM(&ibus_rx_buf[0], 32) == 1)
 		  {
 			  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+
+			  iBus_Parsing(&ibus_rx_buf[0], &iBus);
+
+			  if (iBus_isActiveFailsafe(&iBus))
+			  {
+				  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+			  }
+			  else
+			  {
+				  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+			  }
+
+			  printf("%d\t%d\t%d\t%d\t%d\t%d\n", iBus.RH, iBus.RV, iBus.LV, iBus.LH, iBus.SwA, iBus.SwB);
 			  HAL_Delay(100); //slight delay to see the led
 		  }
 
