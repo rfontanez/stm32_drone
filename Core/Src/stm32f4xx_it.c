@@ -218,8 +218,8 @@ void SysTick_Handler(void)
   */
 void UART5_IRQHandler(void)
 {
-	static unsigned char cnt = 0;
   /* USER CODE BEGIN UART5_IRQn 0 */
+	static unsigned char cnt = 0;
 	if (LL_USART_IsActiveFlag_RXNE(UART5))
 	{
 		//if so, reset that flag for next time
