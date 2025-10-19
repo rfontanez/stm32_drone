@@ -81,7 +81,7 @@ extern uint8_t ibus_rx_cplt_flag; //full message received flag
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+int is_iBus_throttle_min(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -97,12 +97,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
-//  int temp = 0;
-//  float flt = 8.000f;
   float q[4];
   float quatRadianAccuracy;
-  unsigned int tim5_ccr4 = 10500;
+
 
 
   /* USER CODE END 1 */
@@ -134,23 +131,6 @@ int main(void)
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
-  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
-
-  TIM3->PSC = 2000;
-  HAL_Delay(100);
-  TIM3->PSC = 1500;
-  HAL_Delay(100);
-  TIM3->PSC = 1000;
-  HAL_Delay(100);
-
-  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
-
-//  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-//  HAL_Delay(100);
-//  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-//  HAL_Delay(100);
-//  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-
 
   LL_USART_EnableIT_RXNE(USART6);//Interrupt for usart6 for terminal output
   LL_USART_EnableIT_RXNE(UART5);//Interrupt for uart5 for radio receiver data input
@@ -173,6 +153,35 @@ int main(void)
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH2);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH3);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH4);
+
+
+  //esc calibration
+  //set PWM to max width for 7 seconds
+  TIM5->CCR1 = 21000;
+  TIM5->CCR2 = 21000;
+  TIM5->CCR3 = 21000;
+  TIM5->CCR4 = 21000;
+  HAL_Delay(7000);
+  //set PWM to min width for 8 seconds
+  TIM5->CCR1 = 10500;
+  TIM5->CCR2 = 10500;
+  TIM5->CCR3 = 10500;
+  TIM5->CCR4 = 10500;
+  HAL_Delay(8000);
+
+  //wait until throttle is at minimum to continue
+  while (is_iBus_throttle_min() == 0);
+
+  //play start up sound once throttle is at min
+  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+  TIM3->PSC = 2000;
+  HAL_Delay(100);
+  TIM3->PSC = 1500;
+  HAL_Delay(100);
+  TIM3->PSC = 1000;
+  HAL_Delay(100);
+  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+
 
   /* USER CODE END 2 */
 
@@ -242,44 +251,39 @@ int main(void)
 //	  }
 
 	  //radio transmitter receiving and parsing
-//	  if (ibus_rx_cplt_flag == 1) //if we have a full message
-//	  {
-//		  ibus_rx_cplt_flag = 0; //reset flag
-////		  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-////		  HAL_Delay(100); //slight delay to see the led
+	  if (ibus_rx_cplt_flag == 1) //if we have a full message
+	  {
+		  ibus_rx_cplt_flag = 0; //reset flag
+
+		  if (ibus_Check_CHKSUM(&ibus_rx_buf[0], 32) == 1)
+		  {
+			  iBus_Parsing(&ibus_rx_buf[0], &iBus);
 //
-////
-//		  if (ibus_Check_CHKSUM(&ibus_rx_buf[0], 32) == 1)
-//		  {
-////			  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-////			  HAL_Delay(100); //slight delay to see the led
-//////
-//			  iBus_Parsing(&ibus_rx_buf[0], &iBus);
-////
-//			  if (iBus_isActiveFailsafe(&iBus) == 1)
-//			  {
-////				  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+			  if (iBus_isActiveFailsafe(&iBus) == 1)
+			  {
+//				  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); //make warning sound to indicate no connection
+				  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+				  HAL_Delay(100); //slight delay to see the led
+			  }
+			  else
+			  {
+//				  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); //turn off warning sound
 //				  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
 //				  HAL_Delay(100); //slight delay to see the led
-//			  }
-//			  else
-//			  {
-////				  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
-////				  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-////				  HAL_Delay(100); //slight delay to see the led
-//			  }
-//
+			  }
+
 //			  printf("%d\t%d\t%d\t%d\t%d\t%d\t%d\n", iBus.RH, iBus.RV, iBus.LV, iBus.LH, iBus.SwA, iBus.SwC, iBus.FailSafe);
-////			  HAL_Delay(100); //slight delay to see the led
-//		  }
-//	  }
+//			  HAL_Delay(100); //slight delay to see the led
+		  }
+	  }
+
+	  TIM5->CCR1 = 10500 + ((iBus.LV - 1000) * 10.5);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+	  TIM5->CCR2 = 10500 + ((iBus.LV - 1000) * 10.5);//set this pulse width to all motors for testing
+	  TIM5->CCR3 = 10500 + ((iBus.LV - 1000) * 10.5);
+	  TIM5->CCR4 = 10500 + ((iBus.LV - 1000) * 10.5);
 
 	  //check PWM of channel 4 and manipulation of pulse width
 	  //continually increase pulse width from 25% until 50% then reset
-	  tim5_ccr4 += 10;
-	  if (tim5_ccr4 > 21000) tim5_ccr4 = 10500;
-	  TIM5->CCR4 = tim5_ccr4;
-	  HAL_Delay(1);
 
 
   }
@@ -332,6 +336,26 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+
+int is_iBus_throttle_min(void)
+{
+	//radio transmitter receiving and parsing
+	if (ibus_rx_cplt_flag == 1) //if we have a full message
+	{
+		ibus_rx_cplt_flag = 0; //reset flag
+		if (ibus_Check_CHKSUM(&ibus_rx_buf[0], 32) == 1)
+		{
+			iBus_Parsing(&ibus_rx_buf[0], &iBus);
+			//check if throttle is at minimum
+			if (iBus.LV < 1010) //use 1010 since some throttle baselines have a bit extra
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
 
 /* USER CODE END 4 */
 
