@@ -82,6 +82,8 @@ extern uint8_t ibus_rx_cplt_flag; //full message received flag
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 int is_iBus_throttle_min(void);
+void ESC_calibration(void);
+int is_iBus_received(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -154,23 +156,51 @@ int main(void)
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH3);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH4);
 
+  while (is_iBus_received() == 0)//wait until we get connection with the controller
+  {
+	  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
 
-  //esc calibration
-  //set PWM to max width for 7 seconds
-  TIM5->CCR1 = 21000;
-  TIM5->CCR2 = 21000;
-  TIM5->CCR3 = 21000;
-  TIM5->CCR4 = 21000;
-  HAL_Delay(7000);
-  //set PWM to min width for 8 seconds
-  TIM5->CCR1 = 10500;
-  TIM5->CCR2 = 10500;
-  TIM5->CCR3 = 10500;
-  TIM5->CCR4 = 10500;
-  HAL_Delay(8000);
+	  TIM3->PSC = 3000;
+	  HAL_Delay(200);
+	  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+	  HAL_Delay(200);
+  }
 
-  //wait until throttle is at minimum to continue
-  while (is_iBus_throttle_min() == 0);
+  if (iBus.SwC == 2000)//check if we should calibrate
+  {
+	  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+	  TIM3->PSC = 1500;
+	  HAL_Delay(200);
+	  TIM3->PSC = 2000;
+	  HAL_Delay(200);
+	  TIM3->PSC = 1500;
+	  HAL_Delay(200);
+	  TIM3->PSC = 2000;
+	  HAL_Delay(200);
+	  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+
+	  ESC_calibration(); //calibrate ESCs
+	  while (iBus.SwC != 1000)//wait until switch is turned off of calibration mode
+	  {
+		  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+		  TIM3->PSC = 1500;
+		  HAL_Delay(200);
+		  TIM3->PSC = 2000;
+		  HAL_Delay(200);
+		  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+		  is_iBus_received();//continue updating iBus message struct
+	  }
+  }
+
+  while (is_iBus_throttle_min() == 0)//wait until throttle is at minimum to continue
+  {
+	  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+
+	  TIM3->PSC = 1000;
+	  HAL_Delay(70);
+	  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+	  HAL_Delay(70);
+  }
 
   //play start up sound once throttle is at min
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -356,6 +386,40 @@ int is_iBus_throttle_min(void)
 	}
 	return 0;
 }
+
+
+void ESC_calibration(void)
+{
+	//esc calibration
+	//set PWM to max width for 7 seconds
+	TIM5->CCR1 = 21000;
+	TIM5->CCR2 = 21000;
+	TIM5->CCR3 = 21000;
+	TIM5->CCR4 = 21000;
+	HAL_Delay(7000);
+	//set PWM to min width for 8 seconds
+	TIM5->CCR1 = 10500;
+	TIM5->CCR2 = 10500;
+	TIM5->CCR3 = 10500;
+	TIM5->CCR4 = 10500;
+	HAL_Delay(8000);
+}
+
+int is_iBus_received(void)
+{
+	//radio transmitter receiving and parsing
+	if (ibus_rx_cplt_flag == 1) //if we have a full message
+	{
+		ibus_rx_cplt_flag = 0; //reset flag
+		if (ibus_Check_CHKSUM(&ibus_rx_buf[0], 32) == 1)
+		{
+			iBus_Parsing(&ibus_rx_buf[0], &iBus);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 
 /* USER CODE END 4 */
 
