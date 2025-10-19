@@ -24,12 +24,12 @@ unsigned char ibus_Check_CHKSUM(unsigned char* data, unsigned char len)
 
 void iBus_Parsing(unsigned char* data, FSiA6B_iBus* iBus)
 {
-	iBus->RH = (data[2] | (data[3] << 8)); 	// & 0x0fff; //iBus is in little endian, and we only need the lower 12 bits
-	iBus->RV = (data[4] | (data[5] << 8)); 	// & 0x0fff;
-	iBus->LV = (data[6] | (data[7] << 8)); 	// & 0x0fff;
-	iBus->LH = (data[8] | (data[9] << 8)); 	// & 0x0fff;
-	iBus->SwA = (data[10] | (data[11] << 8)); // & 0x0fff;
-	iBus->SwC = (data[12] | (data[13] << 8)); // & 0x0fff;
+	iBus->RH = (data[2] | (data[3] << 8)) & 0x0fff; //iBus is in little endian, and we only need the lower 12 bits
+	iBus->RV = (data[4] | (data[5] << 8)) & 0x0fff;
+	iBus->LV = (data[6] | (data[7] << 8)) & 0x0fff;
+	iBus->LH = (data[8] | (data[9] << 8)) & 0x0fff;
+	iBus->SwA = (data[10] | (data[11] << 8)) & 0x0fff;
+	iBus->SwC = (data[12] | (data[13] << 8))& 0x0fff;
 
 	iBus->FailSafe  = (data[13] >> 4); //grab fail safe bits from channel 6
 									   //(which is activated by transmitter settings)
@@ -38,7 +38,7 @@ void iBus_Parsing(unsigned char* data, FSiA6B_iBus* iBus)
 
 unsigned char iBus_isActiveFailsafe(FSiA6B_iBus* iBus)
 {
-	return iBus->FailSafe != 1;//if fail safe is triggered return 1
+	return iBus->FailSafe != 0;//if fail safe is triggered return 1
 }
 
 void FSiA6B_UART5_Initialization(void)

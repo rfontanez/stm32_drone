@@ -232,20 +232,21 @@ void UART5_IRQHandler(void)
 		switch(cnt)
 		{
 		case 0:
-			if (uart5_rx_data == 0x20)
+			if (uart5_rx_data == 0x20) //if first byte fits ibus message format ie 0x20
 			{
-				ibus_rx_buf[cnt] = uart5_rx_data;
+				ibus_rx_buf[cnt] = uart5_rx_data; //save it to the buffer
 				cnt++;
 			}
 			break;
 		case 1:
-			if (uart5_rx_data == 0x40)
+			if (uart5_rx_data == 0x40) //if second byte fits ibus message format ie 0x40
 			{
-				ibus_rx_buf[cnt] = uart5_rx_data;
+				ibus_rx_buf[cnt] = uart5_rx_data; //save it to the buffer
+				cnt++;
 			}
 			else
 			{
-				cnt = 0;
+				cnt = 0;//reset if the format doesnt match and try again
 			}
 			break;
 		case 31:
