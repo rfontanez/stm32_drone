@@ -75,6 +75,8 @@ extern uint8_t uart6_rx_data;
 extern uint8_t ibus_rx_buf[32];//ibus message buffer
 extern uint8_t ibus_rx_cplt_flag; //full message received flag
 
+extern uint8_t tim7_1ms_flag;
+
 
 /* USER CODE END PV */
 
@@ -101,6 +103,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
   float q[4];
   float quatRadianAccuracy;
+  unsigned short ccr1, ccr2, ccr3, ccr4;
 
 
 
@@ -131,6 +134,7 @@ int main(void)
   MX_SPI3_Init();
   MX_UART5_Init();
   MX_TIM5_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
 
@@ -155,6 +159,10 @@ int main(void)
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH2);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH3);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH4);
+
+
+  LL_TIM_EnableCounter(TIM7);
+  LL_TIM_EnableIT_UPDATE(TIM7);
 
   while (is_iBus_received() == 0)//wait until we get connection with the controller
   {
@@ -222,6 +230,22 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  //performs at 1kHz, set up for PID algo
+	  if (tim7_1ms_flag == 1)
+	  {
+		  tim7_1ms_flag = 0;
+
+		  //ccr values explained;
+		  //(10500 + ((iBus.LV - 1000) * 10.5)) - this calculates throttle, shifts up iBus values from 1000 to 2000 into 0 to 1000, and the converts those to a range of 10500 t0 21000 which is what the pulse width range for ESC is.
+		  //(10500 + 500 +((iBus.LV - 1000) * 10)) - changed the throttle to this to include a motor arming phase, full throttle down will have a slight motor spin.
+		  //((iBus.RV - 1500) * 5) - this controls pitch - (- 1500) sets the right vertical stick to be 0 at center position, and -500 at full backward, and 500 at full forward. then multiplied by 5 for a gain (this makes each increase into a sizable portion of the 10500-21000 pulse width range) (too high gain and itll be way to angled, too little and wont pitch enough) this is subtracted from the front motors and added to the back ones. when the value is negative, this inverts, and the fronts are added to and the rears are subtracted from
+		  //((iBus.RV - 1500) * 5) - this controls roll and yaw as well, just with different addition/subtraction applied to certain motors
+		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
+		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);
+		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
+
+	  }
 
 	  //check if BNO080 has data for us
 //	  if (BNO080_dataAvailable() == 1) {
@@ -249,9 +273,9 @@ int main(void)
 //		  	  	  	  	  	  	  	  	  	  	  	  	  	//just add to its address to get to all the other members
 //		  	  	  	  	  	  	  	  	  	  	  	  	    //kind of like passing the address of an array
 //		  //convert raw value to degrees per second (dps)
-//		  ICM20602_gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
-//		  ICM20602_gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
-//		  ICM20602_gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
+//		  ICM20602.gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
+//		  ICM20602.gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
+//		  ICM20602.gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
 //
 ////		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, ICM20602.gyro_x_raw, ICM20602.gyro_y_raw, ICM20602.gyro_z_raw, -4000);
 //		  //print dps values, multiplied by 100 to save decimal values, divide outputted values by 100 to get actual dps
@@ -307,10 +331,10 @@ int main(void)
 		  }
 	  }
 
-	  TIM5->CCR1 = 10500 + ((iBus.LV - 1000) * 10.5);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
-	  TIM5->CCR2 = 10500 + ((iBus.LV - 1000) * 10.5);//set this pulse width to all motors for testing
-	  TIM5->CCR3 = 10500 + ((iBus.LV - 1000) * 10.5);
-	  TIM5->CCR4 = 10500 + ((iBus.LV - 1000) * 10.5);
+	  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
+	  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
+	  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
+	  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
 
 	  //check PWM of channel 4 and manipulation of pulse width
 	  //continually increase pulse width from 25% until 50% then reset
