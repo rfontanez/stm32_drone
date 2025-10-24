@@ -247,41 +247,49 @@ int main(void)
 
 	  }
 
-	  //check if BNO080 has data for us
-//	  if (BNO080_dataAvailable() == 1) {
-////		  //store the raw values of the quaternion
-//		  q[0] = BNO080_getQuatI();
-//		  q[1] = BNO080_getQuatJ();
-//		  q[2] = BNO080_getQuatK();
-//		  q[3] = BNO080_getQuatReal();
-//
-////		  //store the accuracy - not sure why but spark fun does
-//		  quatRadianAccuracy = BNO080_getQuatRadianAccuracy();
-//
-////		  //send raw values to be turned into Euler angles
-////		  //this stores the roll, pitch, and yaw values globally
-//		  Quaternion_Update(&q[0]);
-//
-////		  //print them as ints to avoid printf float errors
+//	  check if BNO080 has data for us
+	  if (BNO080_dataAvailable() == 1) {
+//		  //store the raw values of the quaternion
+		  q[0] = BNO080_getQuatI();
+		  q[1] = BNO080_getQuatJ();
+		  q[2] = BNO080_getQuatK();
+		  q[3] = BNO080_getQuatReal();
+
+//		  //store the accuracy - not sure why but spark fun does
+		  quatRadianAccuracy = BNO080_getQuatRadianAccuracy();
+
+//		  //send raw values to be turned into Euler angles
+//		  //this stores the roll, pitch, and yaw values globally
+		  Quaternion_Update(&q[0]);
+
+		  //flip signs to match expected - check with data output to make sure they are correct
+		  BNO080_Roll = -BNO080_Roll;
+		  BNO080_Pitch = -BNO080_Pitch;
+
+		  //print them as ints to avoid printf float errors and multiply by 100 to preserve decimal digits
 //		  printf("R:%d, P:%d, Y:%d\n", (int)(BNO080_Roll*100), (int)(BNO080_Pitch*100), (int)(BNO080_Yaw*100));
-//
-//	  }
-//	  if (ICM20602_DataReady() == 1){
-//
-//		  ICM20602_Get3AxisGyroRawData(&ICM20602.gyro_x_raw);//by passing the first struct member we want(gyro_x_raw)
-//		  	  	  	  	  	  	  	  	  	  	  	  	  	//as a reference (its address), the function can
-//		  	  	  	  	  	  	  	  	  	  	  	  	  	//just add to its address to get to all the other members
-//		  	  	  	  	  	  	  	  	  	  	  	  	    //kind of like passing the address of an array
-//		  //convert raw value to degrees per second (dps)
-//		  ICM20602.gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
-//		  ICM20602.gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
-//		  ICM20602.gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
-//
-////		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, ICM20602.gyro_x_raw, ICM20602.gyro_y_raw, ICM20602.gyro_z_raw, -4000);
-//		  //print dps values, multiplied by 100 to save decimal values, divide outputted values by 100 to get actual dps
+
+	  }
+	  if (ICM20602_DataReady() == 1){
+
+		  ICM20602_Get3AxisGyroRawData(&ICM20602.gyro_x_raw);//by passing the first struct member we want(gyro_x_raw)
+		  	  	  	  	  	  	  	  	  	  	  	  	  	//as a reference (its address), the function can
+		  	  	  	  	  	  	  	  	  	  	  	  	  	//just add to its address to get to all the other members
+		  	  	  	  	  	  	  	  	  	  	  	  	    //kind of like passing the address of an array
+		  //convert raw value to degrees per second (dps)
+		  ICM20602.gyro_x = ICM20602.gyro_x_raw * 2000.f / 32768.f; //multiply by sensitivity, divide by resolution (16 bits signed)
+		  ICM20602.gyro_y = ICM20602.gyro_y_raw * 2000.f / 32768.f; //cast to values to float
+		  ICM20602.gyro_z = ICM20602.gyro_z_raw * 2000.f / 32768.f;
+
+		  //flip sign to match expected - check with data output to make sure they are correct
+		  ICM20602.gyro_x = -ICM20602.gyro_x;
+		  ICM20602.gyro_z = -ICM20602.gyro_z;
+
+		  //printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, ICM20602.gyro_x_raw, ICM20602.gyro_y_raw, ICM20602.gyro_z_raw, -4000);
+		  //print dps values, multiplied by 100 to save decimal values, divide outputted values by 100 to get actual dps
 //		  printf("A:%d X:%d Y:%d Z:%d B:%d\n", 4000, (int)(ICM20602.gyro_x * 100), (int)(ICM20602.gyro_y * 100), (int)(ICM20602.gyro_z * 100), -4000);
-//
-//	  }
+
+	  }
 
 	  //if the data is ready
 //	  if (LPS22HH_DataReady() == 1) {

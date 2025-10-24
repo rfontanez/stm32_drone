@@ -293,9 +293,6 @@ void TIM7_IRQHandler(void)
 //			tim7_1ms_count = 0;
 //			tim7_1ms_flag = 1;
 //		}
-
-
-
 	}
   /* USER CODE END TIM7_IRQn 0 */
   /* USER CODE BEGIN TIM7_IRQn 1 */
