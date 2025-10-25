@@ -262,10 +262,12 @@ int main(void)
 			  Reset_All_PID_Integrator();
 		  }
 
-		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result + roll.in.pid_result;//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
-		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result + roll.in.pid_result;
-		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result - roll.in.pid_result;
-		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result - roll.in.pid_result;
+		  Single_Yaw_Rate_PID_Calculation(&yaw_rate, (iBus.LH - 1500), ICM20602.gyro_z);
+
+		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result + roll.in.pid_result - yaw_rate.pid_result;//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result + roll.in.pid_result + yaw_rate.pid_result;
+		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result - roll.in.pid_result - yaw_rate.pid_result;
+		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result - roll.in.pid_result + yaw_rate.pid_result;
 
 		  //ccr values explained;
 		  //(10500 + ((iBus.LV - 1000) * 10.5)) - this calculates throttle, shifts up iBus values from 1000 to 2000 into 0 to 1000, and the converts those to a range of 10500 t0 21000 which is what the pulse width range for ESC is.
