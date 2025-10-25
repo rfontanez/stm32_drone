@@ -31,6 +31,7 @@
 #include "ICM20602.h"
 #include "LPS22HH.h"
 #include "FS-iA6B.h"
+#include "PID control.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -221,6 +222,22 @@ int main(void)
   LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
 
 
+  //set pid gains
+  roll.in.kp = 6.0f;
+  roll.in.ki = 5.0f;
+  roll.in.kd = 1.5f;
+  pitch.in.kp = 6.0f;
+  pitch.in.ki = 5.0f;
+  pitch.in.kd = 1.5f;
+
+  roll.out.kp = 45.0f;
+  roll.out.ki = 3.0f;
+  roll.out.kd = 4.0f;
+  pitch.out.kp = 45.0f;
+  pitch.out.ki = 3.0f;
+  pitch.out.kd = 4.0f;
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -235,15 +252,30 @@ int main(void)
 	  {
 		  tim7_1ms_flag = 0;
 
+		  Double_Roll_Pitch_PID_Calculation(&pitch, ((iBus.RV - 1500) * 0.1f), BNO080_Pitch, ICM20602.gyro_x);
+		  Double_Roll_Pitch_PID_Calculation(&roll, ((iBus.RH - 1500) * 0.1f), BNO080_Roll, ICM20602.gyro_y);
+
+//		  if (iBus.LV <= 1030 || motor_arming _flag == 0) //REPLACE once ive implemented motor arming
+		  //reset integrator values when landed
+		  if (iBus.LV <= 1030)
+		  {
+			  Reset_All_PID_Integrator();
+		  }
+
+		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result + roll.in.pid_result;//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result + roll.in.pid_result;
+		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result - roll.in.pid_result;
+		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result - roll.in.pid_result;
+
 		  //ccr values explained;
 		  //(10500 + ((iBus.LV - 1000) * 10.5)) - this calculates throttle, shifts up iBus values from 1000 to 2000 into 0 to 1000, and the converts those to a range of 10500 t0 21000 which is what the pulse width range for ESC is.
 		  //(10500 + 500 +((iBus.LV - 1000) * 10)) - changed the throttle to this to include a motor arming phase, full throttle down will have a slight motor spin.
 		  //((iBus.RV - 1500) * 5) - this controls pitch - (- 1500) sets the right vertical stick to be 0 at center position, and -500 at full backward, and 500 at full forward. then multiplied by 5 for a gain (this makes each increase into a sizable portion of the 10500-21000 pulse width range) (too high gain and itll be way to angled, too little and wont pitch enough) this is subtracted from the front motors and added to the back ones. when the value is negative, this inverts, and the fronts are added to and the rears are subtracted from
 		  //((iBus.RV - 1500) * 5) - this controls roll and yaw as well, just with different addition/subtraction applied to certain motors
-		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
-		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
-		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);
-		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
+//		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+//		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
+//		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);
+//		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
 
 	  }
 
