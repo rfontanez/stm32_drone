@@ -106,6 +106,8 @@ int main(void)
   float quatRadianAccuracy;
   unsigned short ccr1, ccr2, ccr3, ccr4;
 
+  float yaw_heading_reference;
+
 
 
   /* USER CODE END 1 */
@@ -145,7 +147,9 @@ int main(void)
   //initialize BNO080 - includes SPI2 and GPIO configurations
   BNO080_Initialization();
   //Set output to be rotation vector and rate to 2500ms which is the max 400Hz output rate
-  BNO080_enableRotationVector(2500);
+//  BNO080_enableRotationVector(2500);
+  //NOTE: Once ive implemented BNO080 calibration function, replace above line with the one below this comment. the line above will be in the BNO080 calibration function
+  BNO080_enableGameRotationVector(2500);
 
   //initialize ICM-20602 - includes SPI1 and GPIO configurations
   //NOTE: This doesn't enable the accelerometer, to enable, go into
@@ -189,6 +193,7 @@ int main(void)
 	  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
 
 	  ESC_calibration(); //calibrate ESCs
+
 	  while (iBus.SwC != 1000)//wait until switch is turned off of calibration mode
 	  {
 		  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -223,20 +228,32 @@ int main(void)
 
 
   //set pid gains
-  roll.in.kp = 6.0f;
+  roll.in.kp = 5.0f;
   roll.in.ki = 5.0f;
-  roll.in.kd = 1.5f;
-  pitch.in.kp = 6.0f;
-  pitch.in.ki = 5.0f;
-  pitch.in.kd = 1.5f;
-
+  roll.in.kd = 1.7f;
   roll.out.kp = 45.0f;
   roll.out.ki = 3.0f;
   roll.out.kd = 4.0f;
+
+  pitch.in.kp = 6.5f;
+  pitch.in.ki = 5.0f;
+  pitch.in.kd = 1.5f;
   pitch.out.kp = 45.0f;
   pitch.out.ki = 3.0f;
   pitch.out.kd = 4.0f;
 
+  yaw_heading.kp = 50.0f;
+  yaw_heading.ki = 0.0f;
+  yaw_heading.kd = 20.0f;
+
+  yaw_rate.kp = 15.0f;
+  yaw_rate.ki = 0.0f;
+  yaw_rate.kd = 2.0f;
+
+
+  //set current heading as initial target for when drone boots up.
+  //NOTE: change this to be inside motor arming condition once its implemented
+  yaw_heading_reference = BNO080_Yaw;
 
   /* USER CODE END 2 */
 
@@ -262,24 +279,69 @@ int main(void)
 			  Reset_All_PID_Integrator();
 		  }
 
-		  Single_Yaw_Rate_PID_Calculation(&yaw_rate, (iBus.LH - 1500), ICM20602.gyro_z);
+		  //if we try to change yaw position, use angular rate pid control loop.
+		  if (iBus.LH < 1485 || iBus.LH > 1515)
+		  {
+			  yaw_heading_reference = BNO080_Yaw;//set new heading reference so that it maintains new position after each rotation
 
-		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result + roll.in.pid_result - yaw_rate.pid_result;//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
-		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result + roll.in.pid_result + yaw_rate.pid_result;
-		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result - roll.in.pid_result - yaw_rate.pid_result;
-		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result - roll.in.pid_result + yaw_rate.pid_result;
+			  Single_Yaw_Rate_PID_Calculation(&yaw_rate, (iBus.LH - 1500), ICM20602.gyro_z);
+
+			  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result + roll.in.pid_result - yaw_rate.pid_result;//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+			  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result + roll.in.pid_result + yaw_rate.pid_result;
+			  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result - roll.in.pid_result - yaw_rate.pid_result;
+	  		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result - roll.in.pid_result + yaw_rate.pid_result;
+		  }
+		  else //else if stick is in center, hold position using heading pid control loop
+		  {
+			  Single_Yaw_Heading_PID_Calculation(&yaw_heading, yaw_heading_reference, BNO080_Yaw, ICM20602.gyro_z);
+
+			  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result + roll.in.pid_result - yaw_heading.pid_result;//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+			  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result + roll.in.pid_result + yaw_heading.pid_result;
+			  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + pitch.in.pid_result - roll.in.pid_result - yaw_heading.pid_result;
+  	  		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - pitch.in.pid_result - roll.in.pid_result + yaw_heading.pid_result;
+		  }
 
 		  //ccr values explained;
 		  //(10500 + ((iBus.LV - 1000) * 10.5)) - this calculates throttle, shifts up iBus values from 1000 to 2000 into 0 to 1000, and the converts those to a range of 10500 t0 21000 which is what the pulse width range for ESC is.
 		  //(10500 + 500 +((iBus.LV - 1000) * 10)) - changed the throttle to this to include a motor arming phase, full throttle down will have a slight motor spin.
 		  //((iBus.RV - 1500) * 5) - this controls pitch - (- 1500) sets the right vertical stick to be 0 at center position, and -500 at full backward, and 500 at full forward. then multiplied by 5 for a gain (this makes each increase into a sizable portion of the 10500-21000 pulse width range) (too high gain and itll be way to angled, too little and wont pitch enough) this is subtracted from the front motors and added to the back ones. when the value is negative, this inverts, and the fronts are added to and the rears are subtracted from
 		  //((iBus.RV - 1500) * 5) - this controls roll and yaw as well, just with different addition/subtraction applied to certain motors
-//		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
-//		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
-//		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);
-//		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
+//		  ccr1 = (10500 /* + 500 */ + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);//convert controller value to pulse width (range of 10500 to 21000) and assign to CCR
+//		  ccr2 = (10500 /* + 500 */ + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) + (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
+//		  ccr3 = (10500 /* + 500 */ + ((iBus.LV - 1000) * 10)) + ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) - (iBus.LH - 1500 * 500);
+//		  ccr4 = (10500 /* + 500 */ + ((iBus.LV - 1000) * 10)) - ((iBus.RV - 1500) * 5) - (iBus.RH - 1500 * 500) + (iBus.LH - 1500 * 500);
 
+//		  ccr1 = (10500 + 500 + ((iBus.LV - 1000) * 10));
+//		  ccr2 = (10500 + 500 + ((iBus.LV - 1000) * 10));
+//		  ccr3 = (10500 + 500 + ((iBus.LV - 1000) * 10));
+//		  ccr4 = (10500 + 500 + ((iBus.LV - 1000) * 10));
+
+//		  ccr1 = (10500 + ((iBus.LV - 1000) * 10));
+//		  ccr2 = (10500 + ((iBus.LV - 1000) * 10));
+//		  ccr3 = (10500 + ((iBus.LV - 1000) * 10));
+//		  ccr4 = (10500 + ((iBus.LV - 1000) * 10));
+
+
+//	  printf("%f\t%f\n", BNO080_Pitch, ICM20602.gyro_x);
+//	  printf("%f\t%f\n", BNO080_Roll, ICM20602.gyro_y);
+//	  printf("%f\t%f\n", BNO080_Yaw, ICM20602.gyro_z);
 	  }
+//
+//	  TIM5->CCR1 = ccr1 ;
+//	  TIM5->CCR2 = ccr2 ;
+//	  TIM5->CCR3 = ccr3 ;
+//	  TIM5->CCR4 = ccr4 ;
+
+//	  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 10500 ? 10500 : ccr1;
+//	  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 10500 ? 10500 : ccr2;
+//	  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 10500 ? 10500 : ccr3;
+//	  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 10500 ? 10500 : ccr4;
+
+	  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
+	  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
+	  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
+	  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
+
 
 //	  check if BNO080 has data for us
 	  if (BNO080_dataAvailable() == 1) {
@@ -296,12 +358,15 @@ int main(void)
 //		  //this stores the roll, pitch, and yaw values globally
 		  Quaternion_Update(&q[0]);
 
+
+
 		  //flip signs to match expected - check with data output to make sure they are correct
 		  BNO080_Roll = -BNO080_Roll;
 		  BNO080_Pitch = -BNO080_Pitch;
 
 		  //print them as ints to avoid printf float errors and multiply by 100 to preserve decimal digits
 //		  printf("R:%d, P:%d, Y:%d\n", (int)(BNO080_Roll*100), (int)(BNO080_Pitch*100), (int)(BNO080_Yaw*100));
+
 
 	  }
 	  if (ICM20602_DataReady() == 1){
@@ -373,13 +438,7 @@ int main(void)
 		  }
 	  }
 
-	  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
-	  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
-	  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
-	  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
 
-	  //check PWM of channel 4 and manipulation of pulse width
-	  //continually increase pulse width from 25% until 50% then reset
 
 
   }
