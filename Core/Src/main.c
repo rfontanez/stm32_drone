@@ -108,6 +108,9 @@ int main(void)
 
   float yaw_heading_reference;
 
+  unsigned char motor_arming_flag = 0;
+  unsigned short iBus_SwA_Prev = 0;
+
 
 
   /* USER CODE END 1 */
@@ -206,10 +209,9 @@ int main(void)
 	  }
   }
 
-  while (is_iBus_throttle_min() == 0)//wait until throttle is at minimum to continue
+  while (is_iBus_throttle_min() == 0 || iBus.SwA == 2000)//wait until throttle is at minimum and switch A is high (ie motors not armed) to continue
   {
 	  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
-
 	  TIM3->PSC = 1000;
 	  HAL_Delay(70);
 	  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
@@ -264,7 +266,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  //performs at 1kHz, set up for PID algo
+
+
+
+
+	  //performs at 1kHz, set up for PID calculations
 	  if (tim7_1ms_flag == 1)
 	  {
 		  tim7_1ms_flag = 0;
@@ -326,6 +332,48 @@ int main(void)
 //	  printf("%f\t%f\n", BNO080_Roll, ICM20602.gyro_y);
 //	  printf("%f\t%f\n", BNO080_Yaw, ICM20602.gyro_z);
 	  }
+
+	  if (iBus.SwA == 2000 && iBus_SwA_Prev != 2000)//if were ready to arm the motors, allow controller access - this only applies to when we are switching from not armed to armed.
+	  {
+		  if (iBus.LV < 1010)//only arm motors if throttle is down while trying to arm
+		  {
+			  motor_arming_flag = 1;
+		  }
+		  else //wait till throttle is down to allow arming, make beeping warning
+		  {
+			  while (is_iBus_throttle_min() == 0 || iBus.SwA == 2000)//wait until throttle is at minimum and switch A is high (ie motors not armed) to continue
+			  {
+				  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+				  TIM3->PSC = 1000;
+				  HAL_Delay(70);
+				  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+				  HAL_Delay(70);
+			  }
+		  }
+
+	  }
+
+	  iBus_SwA_Prev = iBus.SwA;//update prev value of arming switch
+
+	  if (iBus.SwA != 2000) //if switch is not down, set flag to not armed and kill all motors
+	  {
+		  motor_arming_flag = 0;
+	  }
+
+	  if (motor_arming_flag == 1)
+	  {
+		  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
+		  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
+		  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
+		  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
+	  }
+	  else //if we are not armed, kill all motors
+	  {
+		  TIM5->CCR1 = 10500;
+		  TIM5->CCR2 = 10500;
+		  TIM5->CCR3 = 10500;
+		  TIM5->CCR4 = 10500;
+	  }
 //
 //	  TIM5->CCR1 = ccr1 ;
 //	  TIM5->CCR2 = ccr2 ;
@@ -337,10 +385,6 @@ int main(void)
 //	  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 10500 ? 10500 : ccr3;
 //	  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 10500 ? 10500 : ccr4;
 
-	  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
-	  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
-	  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
-	  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
 
 
 //	  check if BNO080 has data for us
