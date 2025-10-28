@@ -450,7 +450,7 @@ int main(void)
 		  BNO080_Roll = -BNO080_Roll;
 		  BNO080_Pitch = -BNO080_Pitch;
 
-		  printf("%.2f\t%.2f\n", BNO080_Roll, BNO080_Pitch);
+//		  printf("%.2f\t%.2f\n", BNO080_Roll, BNO080_Pitch);
 
 
 	  }
