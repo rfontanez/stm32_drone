@@ -77,6 +77,9 @@ extern uint8_t ibus_rx_buf[32];//ibus message buffer
 extern uint8_t ibus_rx_cplt_flag; //full message received flag
 
 extern uint8_t tim7_1ms_flag;
+extern uint8_t tim7_1000ms_flag;
+
+unsigned char failsafe_flag = 0;
 
 
 /* USER CODE END PV */
@@ -110,6 +113,7 @@ int main(void)
 
   unsigned char motor_arming_flag = 0;
   unsigned short iBus_SwA_Prev = 0;
+  unsigned char iBus_rx_cnt = 0;
 
 
 
@@ -362,10 +366,21 @@ int main(void)
 
 	  if (motor_arming_flag == 1)
 	  {
-		  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
-		  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
-		  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
-		  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
+		  if (failsafe_flag == 0)//check fail safe which monitors controller connection
+		  {
+			  TIM5->CCR1 = ccr1 > 21000 ? 21000 : ccr1 < 11000 ? 11000 : ccr1; //beware this makes throttle slightly positive as a baseline, meaning with throttle stick all the way down the motors will still spin slightly
+			  TIM5->CCR2 = ccr2 > 21000 ? 21000 : ccr2 < 11000 ? 11000 : ccr2;
+			  TIM5->CCR3 = ccr3 > 21000 ? 21000 : ccr3 < 11000 ? 11000 : ccr3;
+			  TIM5->CCR4 = ccr4 > 21000 ? 21000 : ccr4 < 11000 ? 11000 : ccr4;
+		  }
+		  else
+		  {
+			  TIM5->CCR1 = 10500;
+			  TIM5->CCR2 = 10500;
+			  TIM5->CCR3 = 10500;
+			  TIM5->CCR4 = 10500;
+		  }
+
 	  }
 	  else //if we are not armed, kill all motors
 	  {
@@ -462,17 +477,22 @@ int main(void)
 
 		  if (ibus_Check_CHKSUM(&ibus_rx_buf[0], 32) == 1)
 		  {
+			  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+
 			  iBus_Parsing(&ibus_rx_buf[0], &iBus);
+			  iBus_rx_cnt++; //increment cnt to check if we are receiving data
 //
 			  if (iBus_isActiveFailsafe(&iBus) == 1)
 			  {
-//				  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); //make warning sound to indicate no connection
-				  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
-				  HAL_Delay(100); //slight delay to see the led
+				  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4); //make warning sound to indicate no connection
+				  failsafe_flag = 1;
+//				  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
+//				  HAL_Delay(100); //slight delay to see the led
 			  }
 			  else
 			  {
-//				  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); //turn off warning sound
+				  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4); //turn off warning sound
+				  failsafe_flag = 0;
 //				  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_2);//toggle led for confirmation
 //				  HAL_Delay(100); //slight delay to see the led
 			  }
@@ -480,6 +500,15 @@ int main(void)
 //			  printf("%d\t%d\t%d\t%d\t%d\t%d\t%d\n", iBus.RH, iBus.RV, iBus.LV, iBus.LH, iBus.SwA, iBus.SwC, iBus.FailSafe);
 //			  HAL_Delay(100); //slight delay to see the led
 		  }
+	  }
+	  if (tim7_1000ms_flag == 1)
+	  {
+		  tim7_1000ms_flag = 0;
+		  if (iBus_rx_cnt == 0)
+		  {
+			  failsafe_flag = 2;
+		  }
+		  iBus_rx_cnt = 0;//reset every one second
 	  }
 
 

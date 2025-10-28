@@ -57,6 +57,8 @@ uint8_t ibus_rx_cplt_flag = 0;
 
 uint8_t tim7_1ms_flag = 0;
 
+uint8_t tim7_1000ms_flag = 0;
+
 
 /* USER CODE END PV */
 
@@ -279,11 +281,19 @@ void TIM7_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM7_IRQn 0 */
 //	static unsigned char tim7_1ms_count = 0;
+	static unsigned short tim7_1000ms_count = 0;
 	if (LL_TIM_IsActiveFlag_UPDATE(TIM7))
 	{
 		LL_TIM_ClearFlag_UPDATE(TIM7);
 
 		tim7_1ms_flag = 1;
+
+		tim7_1000ms_count++;
+		if (tim7_1000ms_count == 1000)
+		{
+			tim7_1000ms_count = 0;
+			tim7_1000ms_flag = 1;
+		}
 
 		//this is a way to set timers for different counts
 		//just set the static variable commented out above to however many ms you want the timer to wait
