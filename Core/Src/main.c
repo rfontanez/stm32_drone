@@ -450,7 +450,7 @@ int main(void)
 		  BNO080_Roll = -BNO080_Roll;
 		  BNO080_Pitch = -BNO080_Pitch;
 
-//		  printf("%.2f\t%.2f\n", BNO080_Roll, BNO080_Pitch);
+		  printf("%.2f\t%.2f\t%.2f\n", BNO080_Roll, BNO080_Pitch, BNO080_Yaw);
 
 
 	  }
@@ -765,7 +765,8 @@ void BNO080_Calibration(void)
 	//Resets BNO080 to disable Game Rotation Vector and Magnetometer
 	//Enables Rotation Vector
 	BNO080_Initialization();
-	BNO080_enableRotationVector(2500); //Send data update every 2.5ms (400Hz)
+//	BNO080_enableRotationVector(2500); //Send data update every 2.5ms (400Hz)
+	BNO080_enableGameRotationVector(2500);
 }
 
 
