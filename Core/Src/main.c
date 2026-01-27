@@ -187,7 +187,7 @@ int main(void)
 	  HAL_Delay(200);
   }
 
-  if (iBus.SwC == 2000)//check if we should calibrate
+  if (iBus.SwC == 2000)//check if we should calibrate ESCs
   {
 	  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
 	  TIM3->PSC = 1500;
@@ -450,7 +450,7 @@ int main(void)
 		  BNO080_Roll = -BNO080_Roll;
 		  BNO080_Pitch = -BNO080_Pitch;
 
-		  printf("%.2f\t%.2f\t%.2f\n", BNO080_Roll, BNO080_Pitch, BNO080_Yaw);
+//		  printf("%.2f\t%.2f\t%.2f\n", BNO080_Roll, BNO080_Pitch, BNO080_Yaw);
 
 
 	  }
