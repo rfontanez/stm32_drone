@@ -121,7 +121,7 @@ int main(void)
   unsigned char motor_arming_flag = 0;
   unsigned short iBus_SwA_Prev = 0;
   unsigned char iBus_rx_cnt = 0;
-  unsigned short adc_val_raw;
+  volatile unsigned short adc_val_raw;
   float battery_volt;
 
 
@@ -311,7 +311,20 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	  battery_volt = (float)adc_val_raw * ADC_VOLTAGE_DIVIDER * ADC_COUNTS_TO_VOLTS;
-	  printf("%d\n%.2f", adc_val_raw, battery_volt);
+//	  printf("%.2f\n",battery_volt);
+//	  HAL_Delay(100);
+
+	  if (battery_volt < 10.0f)
+	  {
+		  TIM3->PSC = 1000;
+		  LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+		  	  }
+	  else
+	  {
+		  LL_TIM_CC_DisableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+	  }
+
+
 
 
 	  //performs at 1kHz, set up for PID calculations
