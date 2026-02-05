@@ -18,6 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
+#include "dma.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -57,6 +59,9 @@ int _write(int file, char* p, int len)
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+#define ADC_COUNTS_TO_VOLTS (3.3f/4096)
+#define ADC_VOLTAGE_DIVIDER 4.49f
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -80,6 +85,7 @@ extern uint8_t tim7_1ms_flag;
 extern uint8_t tim7_1000ms_flag;
 
 unsigned char failsafe_flag = 0;
+
 
 
 /* USER CODE END PV */
@@ -115,6 +121,8 @@ int main(void)
   unsigned char motor_arming_flag = 0;
   unsigned short iBus_SwA_Prev = 0;
   unsigned char iBus_rx_cnt = 0;
+  unsigned short adc_val_raw;
+  float battery_volt;
 
 
 
@@ -138,6 +146,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM3_Init();
   MX_USART6_UART_Init();
   MX_SPI2_Init();
@@ -146,6 +155,7 @@ int main(void)
   MX_UART5_Init();
   MX_TIM5_Init();
   MX_TIM7_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   LL_TIM_EnableCounter(TIM3);
 
@@ -172,6 +182,8 @@ int main(void)
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH2);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH3);
   LL_TIM_CC_EnableChannel(TIM5, LL_TIM_CHANNEL_CH4);
+
+  HAL_ADC_Start_DMA(&hadc1, &adc_val_raw, 1);
 
 
   LL_TIM_EnableCounter(TIM7);
@@ -298,7 +310,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-
+	  battery_volt = (float)adc_val_raw * ADC_VOLTAGE_DIVIDER * ADC_COUNTS_TO_VOLTS;
+	  printf("%d\n%.2f", adc_val_raw, battery_volt);
 
 
 	  //performs at 1kHz, set up for PID calculations
