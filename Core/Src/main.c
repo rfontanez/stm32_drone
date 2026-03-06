@@ -310,6 +310,9 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+
+	  /********************************************************************/
+
 	  battery_volt = (float)adc_val_raw * ADC_VOLTAGE_DIVIDER * ADC_COUNTS_TO_VOLTS;
 //	  printf("%.2f\n",battery_volt);
 //	  HAL_Delay(100);
@@ -564,7 +567,7 @@ int main(void)
 	  }
 
 
-
+/********************************************************************/
 
   }
   /* USER CODE END 3 */
